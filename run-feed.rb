@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/usr/bin/ruby
 require_relative './gerrit-rss.rb'
 
 # Get an instance of the publisher.

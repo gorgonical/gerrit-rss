@@ -4,6 +4,7 @@ require 'atom'
 require 'optparse'
 require 'json'
 require 'faraday'
+require 'trollop'
 
 class GerritRSS
 
@@ -14,53 +15,39 @@ class GerritRSS
   end
 
   def parse_options(command_line, program_name)
-    options = {}
-    OptionParser.new do |opts|
-      opts.banner = "test!"
-      options = OpenStruct.new
-      options[:project] = nil
-      options[:change_id] = nil
-      options[:owner] = nil
-      options[:author] = nil
-      options[:comment] = nil
-      options[:change_url] = nil
-      options[:program_name] = program_name
+    parser = Trollop::Parser.new do
+      opt :project, "Name of project", :type => :string
+      opt :change, "Change ID of change", :type => :string
+      opt :change_owner, "Owner of change", :type => :string
+      opt :author, "Author of comment", :type => :string
+      opt :comment, "Comment text", :type => :string
+      opt :change_url, "URL of change on gerrit", :type => :string
+    end
 
-      opts.on('-p', '--project PROJECT', String, "Name of project") do |p|
-        options[:project] = p
-      end
+    options = Trollop::with_standard_exception_handling(parser) do
+      parser.ignore_invalid_options = true
+      parser.parse(command_line)
+    end
 
-      opts.on('-c', '--change CHANGEID', String, "ChangeID of change") do |c|
-        options[:change_id] = c
-      end
+    # We only want the email of the change owner/author, but we get it
+    # in a form like this: "<username> (<email>)"
+    if options[:change_owner]
+      options[:change_owner] = /.*\((.+@.+)\)/.match(options[:change_owner]).captures[0]
+    end
+    if options[:author]
+      options[:author] = /.*\((.+@.+)\)/.match(options[:author]).captures[0]
+    end
 
-      opts.on('-w', '--change-owner OWNER', String, "Owner of change") do |o|
-        # Gerrit likes to give us "<username> (<user@domain.com>)" in
-        # the owner field, so we need to hack this apart and capture
-        # whatever the email is.
-        options[:owner] = /.*\((.+@.+)\)/.match(o).captures[0]
-      end
+    # Just throw the program name into options as well
+    options[:program_name] = program_name
 
-      opts.on('-a', '--author [AUTHOR]', String, "Author of comment") do |a|
-        # See the owner change.
-        options[:author] = /.*\((.+@.+)\)/.match(a).captures[0]
-      end
-
-      opts.on('-m', '--comment [COMMENT]', String, "Text of comment") do |c|
-        options[:comment] = c
-      end
-
-      opts.on('-u', '--change-url URL', String, "URL of change on gerrit") do |u|
-        options[:change_url] = u
-      end
-    end.parse(command_line)
     # Not only accept these arguments, but require them. Unless the
     # gerrit API changes, these must be included.
     if options[:project] == nil
       raise ArgumentError, "Project is missing", caller
-    elsif options[:change_id] == nil
+    elsif options[:change] == nil
       raise ArgumentError, "ChangeID is missing", caller
-    elsif options[:owner] == nil
+    elsif options[:change_owner] == nil
       raise ArgumentError, "Owner is missing", caller
     elsif options[:change_url] == nil
       raise ArgumentError, "URL is missing", caller
@@ -92,15 +79,14 @@ class GerritRSS
     Atom::Entry.new do |entry|
       # These three fields are always the same
       entry.links << options[:change_url]
-      entry.id = options[:change_id]
+      entry.id = options[:change]
       entry.updated = Time.now
       # The entry needs to be different depending on how this script was
       # called
       case options[:program_name]
-          
-      when "draft-published"
-        entry.title = "New patch set from #{options[:owner]}"
-        entry.summary = "New patch set from #{options[:owner]} for change: \"#{options[:subject]}\""
+      when "patchset-created"
+        entry.title = "New patch set from #{options[:change_owner]}"
+        entry.summary = "New patch set from #{options[:change_owner]} for change: \"#{options[:subject]}\""
       when "comment-added"
         entry.title = "New comment added for: \"#{options[:subject]}\""
         entry.summary = "New comment from #{options[:author]} for change: \"#{options[:subject]}\""
