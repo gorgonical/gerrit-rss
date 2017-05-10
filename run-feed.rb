@@ -8,7 +8,7 @@ publisher = GerritRSS.new(50, "/path/to/feeds", "https://gerrit.named-data.net")
 options = publisher.parse_options(ARGV, $0)
 
 # Fetch a little more information about the patch and add it to our information array.
-change_info = publisher.fetch_change(options[:change_id])
+change_info = publisher.fetch_change(options[:change])
 options[:subject] = change_info["subject"]
 
 # Publish the update

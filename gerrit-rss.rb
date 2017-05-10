@@ -60,6 +60,13 @@ class GerritRSS
       # Lock the file for writing. This should block until a lock can be
       # obtained. Then read the existing XML into a feed object.
       file.flock(File::LOCK_EX)
+      # If the feed was initially empty, fill it with the bare feed skeleton.
+      if File.zero?(file)
+        file.write(initialize_feed(options).to_xml)
+        file.flush
+        file.truncate(file.pos)
+        file.rewind
+      end
       feed = Atom::Feed.load_feed(file)
 
       # Generate the RSS entry from the options and append to the feed
@@ -72,6 +79,15 @@ class GerritRSS
       file.write(feed.to_xml)
       file.flush
       file.truncate(file.pos)
+    end
+  end
+
+  def initialize_feed(options)
+    Atom::Feed.new do |feed|
+      feed.title = "Events for #{options[:project]}"
+      feed.links << @gerrit_api_url
+      feed.updated = Time.now
+      feed.id = options[:project]
     end
   end
 
