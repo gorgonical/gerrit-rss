@@ -34,11 +34,15 @@ class GerritRSS
       end
 
       opts.on('-w', '--change-owner OWNER', String, "Owner of change") do |o|
-        options[:owner] = o
+        # Gerrit likes to give us "<username> (<user@domain.com>)" in
+        # the owner field, so we need to hack this apart and capture
+        # whatever the email is.
+        options[:owner] = /.*\((.+@.+)\)/.match(o).captures[0]
       end
 
       opts.on('-a', '--author [AUTHOR]', String, "Author of comment") do |a|
-        options[:author] = a
+        # See the owner change.
+        options[:author] = /.*\((.+@.+)\)/.match(a).captures[0]
       end
 
       opts.on('-m', '--comment [COMMENT]', String, "Text of comment") do |c|
