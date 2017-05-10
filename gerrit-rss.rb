@@ -1,4 +1,5 @@
-#/usr/bin/env ruby
+#/usr/bin/ruby
+
 require 'atom'
 require 'optparse'
 require 'json'
