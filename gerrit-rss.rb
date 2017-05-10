@@ -38,8 +38,8 @@ class GerritRSS
       options[:author] = /.*\((.+@.+)\)/.match(options[:author]).captures[0]
     end
 
-    # Just throw the program name into options as well
-    options[:program_name] = program_name
+    # Get only the binary name off the end and provide that as an option.
+    options[:program_name] = program_name.split('/')[-1]
 
     # Not only accept these arguments, but require them. Unless the
     # gerrit API changes, these must be included.
