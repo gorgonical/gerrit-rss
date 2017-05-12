@@ -58,37 +58,51 @@ RSpec.describe GerritRSS do
 
   context "when generating RSS (.generate_rss)" do
     it "returns an entry with title, summary, links, id, and update set" do
-      test_options = {:change_url => "http://test.com", :change => "someid",
-                      :program_name => "other_program", :subject => "test subject"}
+      test_options = {:change_url => "http://test.com", :sequence_number => 1,
+                      :program_name => "other_program", :subject => "test subject",
+                      :change => "abc123"}
       entry = GerritRSS.new(50, "/path", "http://test.com").generate_rss(test_options)
-      expect(entry.title).to eq("A change has happened for: \"test subject\"")
+      expect(entry.title).to eq("other-change: A change has happened for: \"test subject\"")
       expect(entry.summary).to eq("Something has happened for change: \"test subject\"")
       testLinks = Atom::Links.new
       testLinks << "http://test.com"
       expect(entry.links).to eq(testLinks)
-      expect(entry.id).to eq("someid")
+      expect(entry.id).to eq("1:abc123")
       expect(entry.updated).to be_within(2).of(Time.now.utc())
     end
 
     context "when $0 is \"patchset-created\"" do
       it "returns a default entry, but with a specific title and summary" do
-        test_options = {:change_url => "http://test.com", :change => "someid",
+        test_options = {:change_url => "http://test.com", :sequence_number => 1,
                         :program_name => "patchset-created", :subject => "test subject",
-                        :change_owner => "guy@place.com"}
+                        :change_owner => "guy@place.com", :change => "abc123"}
         entry = GerritRSS.new(50, "/path", "http://test.com").generate_rss(test_options)
-        expect(entry.title).to eq("New patch set from guy@place.com")
+        expect(entry.title).to eq("patchset-created: New patch set from guy@place.com")
         expect(entry.summary).to eq("New patch set from guy@place.com for change: \"test subject\"")
       end
     end
 
     context "when $0 is \"comment-added\"" do
       it "returns a default entry, but with a specific title and summary" do
-        test_options = {:change_url => "http://test.com", :change => "someid",
+        test_options = {:change_url => "http://test.com", :sequence_number => 1,
                         :program_name => "comment-added", :subject => "test subject",
-                        :author => "commenter@place.com"}
+                        :author => "commenter@place.com", :change => "abc123"}
         entry = GerritRSS.new(50, "/path", "http://test.com").generate_rss(test_options)
-        expect(entry.title).to eq("New comment added for: \"test subject\"")
+        expect(entry.title).to eq("comment-added: New comment added for: \"test subject\"")
         expect(entry.summary).to eq("New comment from commenter@place.com for change: \"test subject\"")
+      end
+
+      context "when an array of score categories were passed to the instance" do
+        it "populates the entry content with the score category and its score" do
+          test_options = {:change_url => "http://test.com", :sequence_number => 1,
+                          :program_name => "comment-added", :subject => "test subject",
+                          :author => "commenter@place.com", :Code_Review => -1,
+                          :change => "abc123"}
+          entry = GerritRSS.new(50, "/path", "http://test.com", ["Code_Review"]).generate_rss(test_options)
+          expect(entry.title).to eq("comment-added: New comment added for: \"test subject\"")
+          expect(entry.summary).to eq("New comment from commenter@place.com for change: \"test subject\"")
+          expect(entry.content).to eq("Comments:\nCode_Review:-1")
+        end
       end
     end
   end
@@ -97,9 +111,9 @@ RSpec.describe GerritRSS do
 
     num_entries = 50
     project_name = "testProject"
-    test_options = {:change_url => "http://test.com", :change => "someid",
+    test_options = {:change_url => "http://test.com", :sequence_number => 1,
                     :program_name => "other_program", :subject => "test subject",
-                    :project => project_name}
+                    :project => project_name, :change => "abc123"}
     rss_feed = GerritRSS.new(num_entries, ".", "http://test.com")
 
     it "creates an empty feed if the feed file is missing" do
@@ -113,18 +127,10 @@ RSpec.describe GerritRSS do
 
     it "ensures that the RSS feed is no more than @feed_length in size" do
 
-
-      ####################
+      ##########################################################
       # As a remark, there has got to be a better way to do this
       # test. This IO mocking is just unbelievably kludgy.
-      ####################
-
-      # num_entries = 50
-      # project_name = "testProject"
-      # test_options = {:change_url => "http://test.com", :change => "someid",
-      #                 :program_name => "other_program", :subject => "test subject",
-      #                 :project => project_name}
-      # rss_feed = GerritRSS.new(num_entries, ".", "http://test.com")
+      ##########################################################
 
       # Entry content
       entry = <<-EOF
